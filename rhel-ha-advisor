@@ -1,0 +1,234 @@
+#!/bin/bash
+#
+# rhel-ha-advisor is a tool to check RHEL Pacemaker clusters for supportability and frequent misconfigurations. RHEL7 or newer required.
+# this script relies on Red Hat's public documentation but is NOT developed, maintained or supported by Red Hat.
+#
+# Javier Blanco | javier@jblanco.es
+#
+
+## config file
+
+CONFIG_FILE="./config.cnf"
+
+## functions
+
+function usage() {
+  printf "The script can run with two parameters (sos_reports_path & temp_files_base_path) or with no parameters if variables SOS_DIR & TEMP_DIR_BASE are defined in the config file.\n"
+  printf "Usage: $0 <sos_reports_path> <temp_files_path>\n"
+  exit 1
+}
+
+function getNodeNumber {
+  fcib=$(find $1 -name cib.xml | head -1)
+  if [ ! -z "$fcib" ]; then
+    grep 'node id' $fcib | wc -l
+  else
+    if [ -e "./"$1"/sos_commands/pacemaker/crm_report/members.txt" ]; then
+      cat ./"$1"/sos_commands/pacemaker/crm_report/members.txt | tr ' ' '\n' | sed '/^$/d' | wc -l
+    else
+      grep 'ring0' ./"$1"/etc/corosync/corosync.conf | grep -v '#' | wc -l
+    fi
+  fi
+}
+
+function getOSdistro {
+  cat ./"$1"/sos_commands/subscription_manager/subscription-manager_list_--installed | grep ^'Product Name' | grep 'Red Hat Enterprise Linux Server\|Red Hat Enterprise Linux for' | head -1 | tr -d ' '
+}
+
+function getOSrelease {
+  subman=$(grep 'Unable to find\|Error' ./"$1"/sos_commands/subscription_manager/subscription-manager_list_--installed | wc -l)
+  if [ "$subman" -eq 0 ]; then
+    cat ./"$1"/sos_commands/subscription_manager/subscription-manager_list_--installed | grep -A2 'Red Hat Enterprise Linux Server\|Red Hat Enterprise Linux for' | tail -1 | tr -d ' '
+  else
+    rrs=$(grep ^'redhat-release-server' ./"$1"/installed-rpms | wc -l)
+    if [ "$rrs" -eq 1 ]; then
+      grep ^'redhat-release' ./"$1"/installed-rpms | head -1 | awk '{print $1}' | cut -d'-' -f1,4 | sed 's/-/ /g'
+    else
+      grep ^'redhat-release' ./"$1"/installed-rpms | head -1 | awk '{print $1}' | cut -d'-' -f1,3 | sed 's/-/ /g'
+    fi
+  fi
+}
+
+function rpm_version {
+  cat ./"$1"/installed-rpms | grep -e ^'pacemaker\|pcs-\|corosync\|gfs2-\|resource-agents\|dlm\|lvm2-lockd' | grep -v 'corosync-qnetd' | sort | uniq | awk '{print $1}'
+}
+
+function run_kernel {
+  cat ./"$1"/uname | head -1 | awk '{print $3}'
+}
+
+function coros_config {
+  cat ./"$1"/etc/corosync/corosync.conf
+}
+
+function rpm_qdevice {
+  cat ./"$1"/installed-rpms | grep -e ^'corosync-qnet' | wc -l
+}
+
+function getDevConsumedSubs {
+  if [ -f ./"$1"/sos_commands/subscription_manager/subscription-manager_list_--consumed ]; then
+    grep ^'Subscription Name' ./"$1"/sos_commands/subscription_manager/subscription-manager_list_--consumed |  grep 'Developer Subscription for Individuals' | wc -l
+  fi
+}
+
+function isPCMKCluster {
+  grep -i 'pacemaker\|corosync' ./"$1"/installed-rpms | wc -l
+}
+
+function isVRTSCluster {
+  grep -i '/opt/VRTSvcs/' ./"$1"/ps | wc -l
+}
+
+function isHPECluster {
+  grep -i 'cmcluster' ./"$1"/ps | wc -l
+}
+
+function isIBMGPFS {
+  grep -i 'gpfs' ./"$1"/installed-rpms | wc -l
+}
+
+function isLinbitClusterInstalled {
+  grep -i 'pacemaker\|corosync' ./"$1"/installed-rpms | grep linbit | wc -l
+}
+
+function isIBMClusterInstalled {
+  grep -i 'pacemaker\|corosync' ./"$1"/installed-rpms | grep db2pcmk | wc -l
+}
+
+function is3PClusterInstalled {
+  grep -i 'pacemaker\|corosync' ./"$1"/sos_commands/rpm/package-data | grep -i 'Oracle\|Rocky\|asianux' | wc -l
+}
+
+function avsec {
+  grep -i 'commvault\|nessus\|veeam\|Tanium\|TrendMicro\|CrowdStrike\|falcon-sensor-bpf\|guard_stap' ./"$1"/ps | wc -l
+}
+
+function resourcemon {
+  if [ -e "./"$1"/var/spool/cron/root" ]; then
+    rmon=$(cat ./"$1"/var/spool/cron/root | grep 'ha-resourcemon' | wc -l)
+  fi
+}
+
+
+## config file and params validation
+
+# If no arguments, load from config file
+if [ $# -eq 0 ]; then
+  if [ -f "$CONFIG_FILE" ]; then
+      source "$CONFIG_FILE"
+  else
+      echo "Error: Config file $CONFIG_FILE not found."
+      exit 1
+  fi
+
+# If exactly 2 arguments, use them
+elif [ $# -eq 2 ]; then
+  SOS_DIR="$1"
+  TEMP_DIR_BASE="$2"
+
+# Otherwise show usage and exit
+else
+  usage
+fi
+
+# Validate values exist
+if [ -z "$SOS_DIR" ] || [ -z "$TEMP_DIR_BASE" ]; then
+  printf "Error: Missing parameters.\n\n"
+  usage
+fi
+
+## main
+
+# Generate a random number to name the temporary folder for every execution
+min=10000000
+max=99999999
+rdmpath=$(echo $(($RANDOM%($max-$min+1)+$min)))
+
+TEMP_DIR="$TEMP_DIR_BASE/$rdmpath"
+
+printf "\n"
+printf "All the script temporary files will be created in: $TEMP_DIR\n"
+mkdir -p $TEMP_DIR
+
+if [ $? -ne 0 ]; then
+  printf "Error: There was an error creating $TEMP_DIR"
+  exit 1
+fi
+
+cd "$SOS_DIR"
+
+if [ $? -ne 0 ]; then
+  printf "Error: There was an error when changing to directory $SOS_DIR"
+  exit 1
+fi
+
+ls -ltr
+printf "\n"
+
+count=1
+echo -n "($count) Enter the sosreport folder name: "
+read -r tvar
+echo $tvar > $TEMP_DIR/members.txt
+sosreport[$count]="$tvar"
+((count++))
+
+noden=$(getNodeNumber "${sosreport[1]}")
+
+while [ "$count" -le "$noden" ]
+do
+  echo -n "($count) Enter the sosreport folder name: "
+  read -r tvar
+  echo $tvar >> $TEMP_DIR/members.txt
+  sosreport[$count]="$tvar"
+  ((count++))
+done
+
+# Validate that the same sos report has not been added more than once
+
+sosrptval=$(sort $TEMP_DIR/members.txt | uniq -c | awk '{print $1}' | grep -v ^1 | wc -l)
+
+if [ "$sosrptval" -gt 0 ]; then
+  printf "Error: One of the sos reports has been indicated twice."
+  exit 1
+fi
+
+# Ensure the cluster is UP in at least one node, otherwise multiple checks will fail
+
+cat $TEMP_DIR/members.txt | while read line
+do
+     # do whatever with $line here
+     :
+done
+
+# Collecting general cluster information (one node only)
+
+
+
+# Collecting information from all the sos reports
+
+count=1
+
+while [ "$count" -le "$noden" ]
+do
+  getOSdistro "${sosreport[$count]}" > $TEMP_DIR/os_distro.$count
+  getOSrelease "${sosreport[$count]}" > $TEMP_DIR/os_release.$count
+  rpm_version "${sosreport[$count]}" > $TEMP_DIR/rpm_version.$count
+  run_kernel "${sosreport[$count]}" > $TEMP_DIR/run_kernel.$count
+  coros_config "${sosreport[$count]}" > $TEMP_DIR/corosync.conf.$count
+  rpm_qdevice "${sosreport[$count]}" > $TEMP_DIR/qdevice.$count
+  getDevConsumedSubs "${sosreport[$count]}" > $TEMP_DIR/devsubs.$count
+  isPCMKCluster "${sosreport[$count]}" > $TEMP_DIR/cl_pcmk_inst.$count
+  isVRTSCluster "${sosreport[$count]}" > $TEMP_DIR/cl_vrts_inst.$count
+  isHPECluster "${sosreport[$count]}" > $TEMP_DIR/cl_hpe_inst.$count
+  isIBMGPFS "${sosreport[$count]}" > $TEMP_DIR/cl_gpfs.$count
+  isLinbitClusterInstalled "${sosreport[$count]}" > $TEMP_DIR/cl_lnbit.$count
+  isIBMClusterInstalled "${sosreport[$count]}" > $TEMP_DIR/cl_ibm.$count
+  is3PClusterInstalled "${sosreport[$count]}" > $TEMP_DIR/cl_3pt.$count
+  avsec "${sosreport[$count]}" > $TEMP_DIR/avsec.$count
+  resourcemon "${sosreport[$count]}" > $TEMP_DIR/ha_resourcemon.$count
+
+  ((count++))
+done
+
+
+
