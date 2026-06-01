@@ -1,0 +1,291 @@
+#!/bin/bash
+#
+# RHEL HA Advisor
+# Javier Blanco | javier@jblanco.es
+
+RHEL_HA_ADVISOR_VERSION="1.0.0"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DATADIR=""
+
+if [ -n "${RHEL_HA_ADVISOR_DATADIR:-}" ] && [ -f "${RHEL_HA_ADVISOR_DATADIR}/lib/functions.sh" ]; then
+  DATADIR="${RHEL_HA_ADVISOR_DATADIR}"
+elif [ -f "$SCRIPT_DIR/lib/functions.sh" ]; then
+  DATADIR="$SCRIPT_DIR"
+elif [ -f "$SCRIPT_DIR/../share/rhel-ha-advisor/lib/functions.sh" ]; then
+  DATADIR="$(cd "$SCRIPT_DIR/../share/rhel-ha-advisor" && pwd)"
+fi
+
+if [ -z "$DATADIR" ]; then
+  printf "Error: cannot find rhel-ha-advisor library (lib/functions.sh)\n" >&2
+  exit 1
+fi
+
+# shellcheck source=lib/functions.sh
+source "$DATADIR/lib/functions.sh"
+
+RED=''
+GRN=''
+YLW=''
+NC=''
+BLE=''
+NO_COLOR=0
+SOSREPORTS_DIR=""
+TMP_DIR=""
+
+function ctrl_c() {
+  printf "\n\t[+] Ending script, Ctrl+C signal received\n\n"
+  exit 1
+}
+
+function init_colors() {
+  if [ "$NO_COLOR" -eq 1 ]; then
+    RED=''
+    GRN=''
+    YLW=''
+    NC=''
+    BLE=''
+  else
+    RED='\033[0;31m'
+    GRN='\033[0;32m'
+    YLW='\033[1;33m'
+    NC='\033[0m'
+    BLE='\033[1;34m'
+  fi
+}
+
+function usage() {
+  cat <<EOF
+Usage: rhel-ha-advisor [OPTIONS] PATH-TO-SOSREPORTS PATH-TO-TMPFILES
+
+Quick check of sosreports for High Availability and Resilient Storage
+cluster installations. Supports sosreport and soscleaner output.
+
+Arguments:
+  PATH-TO-SOSREPORTS    Directory containing unpacked sosreport folders
+  PATH-TO-TMPFILES      Base directory where a unique 8-digit work folder is created
+
+Options:
+  -h, --help            Show this help message and exit
+  -V, --version         Show version information and exit
+      --no-color        Disable colored output
+
+Examples:
+  rhel-ha-advisor ~/sosreports /tmp/rhel-ha-advisor-work
+
+EOF
+}
+
+function version() {
+  printf 'rhel-ha-advisor %s\n' "$RHEL_HA_ADVISOR_VERSION"
+}
+
+function die() {
+  printf '\tError: %s\n\n' "$1" >&2
+  exit 1
+}
+
+function list_sosreport_folders() {
+  ls -1 "$SOSREPORTS_DIR"
+  printf "\n"
+}
+
+function make_tmp_workdir() {
+  local base="$1"
+  local subdir tmpfolder
+
+  mkdir -p "$base" || die "cannot create temporary directory: $base"
+  base=$(cd "$base" && pwd)
+
+  while true; do
+    subdir=$(printf '%08d' $(( (RANDOM * 32768 + RANDOM) % 100000000 )))
+    tmpfolder="$base/$subdir"
+    [ ! -e "$tmpfolder" ] && break
+  done
+
+  mkdir -p "$tmpfolder" || die "cannot create temporary work directory: $tmpfolder"
+  printf '%s' "$tmpfolder"
+}
+
+function validate_sosreport_folder() {
+  local folder="$1"
+
+  if [ ! -d "$SOSREPORTS_DIR/$folder" ]; then
+    die "folder not found: $folder"
+  fi
+
+  register_sos_folder "$folder" || die "no sosreport data found in folder: $folder"
+}
+
+function prompt_first_sosreport() {
+  local tvar
+
+  echo -n "(1) Enter the sosreport folder name: " >&2
+  read -r tvar
+  validate_sosreport_folder "$tvar"
+  printf '%s' "$tvar"
+}
+
+function prompt_sosreport_folder() {
+  local count="$1"
+  local tvar
+
+  echo -n "($count) Enter the sosreport folder name: " >&2
+  read -r tvar
+  validate_sosreport_folder "$tvar"
+  printf '%s' "$tvar"
+}
+
+function prompt_sosreports() {
+  local -n _sosreports=$1
+  local noden="$2"
+  local count="$3"
+  local tvar
+
+  while [ "$count" -le "$noden" ]
+  do
+    tvar=$(prompt_sosreport_folder "$count")
+    _sosreports[count]="$tvar"
+    ((count++))
+  done
+}
+
+function validate_cluster_type() {
+  local first_sosreport="$1"
+  local clusinst vrtsinst hpesginst gpfsinst oracinst
+  local cluslinbitinst clusibminst clus3pinst
+
+  clusinst=$(isClusterInstalled "$first_sosreport")
+
+  if [ "$clusinst" -lt 2 ]
+  then
+    printf '[%bko %b] Red Hat cluster is not installed on this system\n' "$RED" "$NC"
+    vrtsinst=$(isVRTSCluster "$first_sosreport")
+    hpesginst=$(isHPECluster "$first_sosreport")
+    gpfsinst=$(isIBMGPFS "$first_sosreport")
+    oracinst=$(isORAC "$first_sosreport")
+
+    if [ "$vrtsinst" -gt 0 ]
+    then
+      printf '[%b info %b] This looks like a Veritas cluster\n' "$BLE" "$NC"
+    fi
+    if [ "$hpesginst" -gt 0 ]
+    then
+      printf '[%b info %b] This looks like an HPE ServiceGuard cluster\n' "$BLE" "$NC"
+    fi
+    if [ "$gpfsinst" -gt 0 ]
+    then
+      printf '[%b info %b] This looks like an IBM GPFS cluster\n' "$BLE" "$NC"
+    fi
+    if [ "$oracinst" -gt 0 ]
+    then
+      printf '[%b info %b] This looks like an Oracle RAC\n' "$BLE" "$NC"
+    fi
+
+    exit 1
+  fi
+
+  cluslinbitinst=$(isLinbitClusterInstalled "$first_sosreport")
+
+  if [ "$cluslinbitinst" -gt 0 ]
+  then
+    printf '[%bko %b] Pacemaker/Corosync are installed from Linbit, not from Red Hat\n' "$RED" "$NC"
+    exit 1
+  fi
+
+  clusibminst=$(isIBMClusterInstalled "$first_sosreport")
+
+  if [ "$clusibminst" -gt 0 ]
+  then
+    printf '[%bko %b] Pacemaker/Corosync are installed from IBM, not from Red Hat\n' "$RED" "$NC"
+    exit 1
+  fi
+
+  clus3pinst=$(is3PClusterInstalled "$first_sosreport")
+
+  if [ "$clus3pinst" -gt 0 ]
+  then
+    printf '[%bko %b] Pacemaker/Corosync are installed from third-party sources, not from Red Hat\n' "$RED" "$NC"
+    exit 1
+  fi
+}
+
+function run_checks() {
+  declare -A sosreport
+  local tmpfolder count noden
+
+  [ -d "$SOSREPORTS_DIR" ] || die "sosreports directory does not exist: $SOSREPORTS_DIR"
+
+  SOSREPORTS_DIR=$(cd "$SOSREPORTS_DIR" && pwd)
+  tmpfolder=$(make_tmp_workdir "$TMP_DIR")
+  printf "Sosreports directory: %s\n" "$SOSREPORTS_DIR"
+  printf "Temporary files will be created in: %s\n" "$tmpfolder"
+  printf "\n"
+
+  list_sosreport_folders
+
+  cd "$SOSREPORTS_DIR" || die "cannot access sosreports directory: $SOSREPORTS_DIR"
+
+  clear_sos_roots
+
+  count=1
+  sosreport[$count]=$(prompt_first_sosreport)
+  ((count++))
+
+  validate_cluster_type "${sosreport[1]}"
+
+  noden=$(getNodeNumber "${sosreport[1]}")
+  prompt_sosreports sosreport "$noden" "$count"
+
+  printf "\n"
+  run_cluster_checks sosreport "$tmpfolder" "$noden"
+}
+
+trap ctrl_c INT
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -V|--version)
+      version
+      exit 0
+      ;;
+    --no-color)
+      NO_COLOR=1
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      die "unknown option: $1 (try --help)"
+      ;;
+    *)
+      if [ -z "$SOSREPORTS_DIR" ]; then
+        SOSREPORTS_DIR="$1"
+      elif [ -z "$TMP_DIR" ]; then
+        TMP_DIR="$1"
+      else
+        die "unexpected argument: $1"
+      fi
+      shift
+      ;;
+  esac
+done
+
+if [ "$#" -gt 0 ]; then
+  die "unexpected argument: $1"
+fi
+
+if [ -z "$SOSREPORTS_DIR" ] || [ -z "$TMP_DIR" ]; then
+  usage >&2
+  exit 1
+fi
+
+init_colors
+printf "\n"
+run_checks
