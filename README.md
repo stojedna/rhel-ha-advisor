@@ -1,19 +1,68 @@
 # RHEL HA Advisor
 
-Quick CLI tool to review unpacked sosreports for supportability issues in Red Hat High Availability and Resilient Storage cluster installations. Supports standard `sosreport` and `soscleaner` output.
+Quick CLI tool to review unpacked sosreports for Red Hat High Availability and Resilient Storage cluster installations. Supports standard `sosreport` and `soscleaner` output.
 
-The tool compares multiple sosreport folders from the same cluster and prints a cluster summary plus installation, health, and diagnostic checks.
+It compares sosreports from the same cluster against Red Hat support policies for HA and Resilient Storage, and reports where the configuration may fall outside what Red Hat supports. A cluster summary is shown first, followed by installation checks and additional health and diagnostic findings.
 
 # Installation
 
-From a clone of this repository:
+| Method | Best for |
+|--------|----------|
+| [COPR (dnf)](#copr-recommended-on-fedora) | Fedora systems — install and get updates with `dnf` |
+| [From source (make)](#from-source) | Developers or custom install paths |
+| [Run from clone](#run-without-installing) | Quick try from a git checkout |
+
+Pre-built packages are published on COPR: [jblanco/rhel-ha-advisor](https://copr.fedorainfracloud.org/coprs/jblanco/rhel-ha-advisor/).
+
+## COPR (recommended on Fedora)
+
+Install `dnf-plugins-core` if `dnf copr` is not available, then enable the repository and install the package:
 
 ```bash
-make install                        # installs to /usr/local/bin and /usr/local/share/rhel-ha-advisor
-make install PREFIX=$HOME/.local    # user-local install
+sudo dnf install dnf-plugins-core
+sudo dnf copr enable jblanco/rhel-ha-advisor
+sudo dnf install rhel-ha-advisor
 ```
 
-You can also run it directly from the repository:
+To remove the COPR repository later:
+
+```bash
+sudo dnf copr disable jblanco/rhel-ha-advisor
+```
+
+Upgrade when a new build is published:
+
+```bash
+sudo dnf upgrade rhel-ha-advisor
+```
+
+## From source
+
+Clone the repository and install with `make`:
+
+```bash
+git clone https://github.com/jblanco/rhel-ha-advisor.git
+cd rhel-ha-advisor
+```
+
+| Command | Install location |
+|---------|------------------|
+| `make install` | `/usr/local/bin`, `/usr/local/share/rhel-ha-advisor` (default) |
+| `sudo make install PREFIX=/usr` | `/usr/bin`, `/usr/share/rhel-ha-advisor` (same layout as the RPM) |
+| `make install PREFIX=$HOME/.local` | `$HOME/.local/bin`, `$HOME/.local/share/rhel-ha-advisor` |
+
+Ensure `~/.local/bin` is on your `PATH` when using a user-local install.
+
+Uninstall:
+
+```bash
+make uninstall
+# or: sudo make uninstall PREFIX=/usr
+```
+
+## Run without installing
+
+From a clone, invoke the script directly:
 
 ```bash
 ./rhel-ha-advisor PATH-TO-SOSREPORTS PATH-TO-TMPFILES
@@ -126,15 +175,21 @@ Use `--no-color` to disable terminal colors.
 # Project layout
 
 ```
-rhel-ha-advisor       CLI entry point
-lib/functions.sh      Check functions and report logic
-Makefile              Install/uninstall targets
-images/               Example screenshots
+rhel-ha-advisor              CLI entry point
+lib/functions.sh             Check functions and report logic
+Makefile                     Install/uninstall targets
+LICENSE                      GPL-2.0-or-later
+images/                      Example screenshots
 ```
+
+# License
+
+This project is licensed under the **GNU General Public License v2.0 or later**. See [LICENSE](LICENSE).
 
 -----
 
+This project is not developed, provided, or supported by Red Hat.
+
 The tool is under active development. Suggestions and issue reports are welcome.
-This project is not developed/provided/supported by Red Hat.
 
 -----
