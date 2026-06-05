@@ -41,7 +41,7 @@ sudo dnf upgrade rhel-ha-advisor
 Clone the repository and install with `make`:
 
 ```bash
-git clone https://github.com/jblanco/rhel-ha-advisor.git
+git clone https://github.com/stojedna/rhel-ha-advisor.git
 cd rhel-ha-advisor
 ```
 
