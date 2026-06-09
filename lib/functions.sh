@@ -179,11 +179,17 @@ function getConsSubscriptions {
 }
 
 function isRHUI {
-  rhui=$(grep -c 'rhui' "$(sos_root "$1")/sos_commands/dnf/dnf_-C_repolist" || true)
-  if [ "$rhui" -gt 0 ]; then
-    check_warn "The systems have RHUI repos, this can be a cloud PAYG instance or have wrongly enabled these repositories"
+  local repolist
+  repolist="$(sos_root "$1")/sos_commands/dnf/dnf_-C_repolist"
+  if [ -f "$repolist" ]; then
+    rhui=$(grep -c 'rhui' "$repolist" || true)
+    if [ "${rhui:-0}" -gt 0 ]; then
+      check_warn "The systems have RHUI repos, this can be a cloud PAYG instance or have wrongly enabled these repositories"
+    else
+      check_pass "The systems don't have RHUI repositories"
+    fi
   else
-    check_pass "The systems don't have RHUI repos"
+    check_warn "The sos report did not include repositories information"
   fi
 }
 
