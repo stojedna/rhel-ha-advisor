@@ -244,13 +244,15 @@ function getNodeNumber {
 }
 
 function getHardware {
+  local ibmz fhw dmidecode_file
+  dmidecode_file="$(sos_root "$1")/dmidecode"
   ibmz=$(grep -c s390x "$(sos_root "$1")/uname" || true)
 
   if [ "$ibmz" -gt 0 ]
   then
     echo "IBMZ"
-  else
-    fhw=$(cat "$(sos_root "$1")/dmidecode" | grep 'Manufacturer:' | grep -v 'UNKNOWN\|Not Specified\|Intel\|Samsung\|QEMU' | head -1 | cut -d":" -f2 | sed 's/ //')
+  elif [ -f "$dmidecode_file" ]; then
+    fhw=$(grep 'Manufacturer:' "$dmidecode_file" | grep -v 'UNKNOWN\|Not Specified\|Intel\|Samsung\|QEMU' | head -1 | cut -d":" -f2 | sed 's/ //')
     echo "$fhw"
   fi
 }
