@@ -3,7 +3,7 @@
 # RHEL HA Advisor
 # Javier Blanco | javier@jblanco.es
 
-RHEL_HA_ADVISOR_VERSION="1.0.0"
+RHEL_HA_ADVISOR_VERSION="1.1.0"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DATADIR=""
@@ -56,22 +56,29 @@ function init_colors() {
 
 function usage() {
   cat <<EOF
-Usage: rhel-ha-advisor [OPTIONS] PATH-TO-SOSREPORTS PATH-TO-TMPFILES
+Usage: rhel-ha-advisor [OPTIONS] PATH-TO-SOSREPORTS
 
 Quick check of sosreports for High Availability and Resilient Storage
 cluster installations. Supports sosreport and soscleaner output.
 
 Arguments:
   PATH-TO-SOSREPORTS    Directory containing unpacked sosreport folders
-  PATH-TO-TMPFILES      Base directory where a unique 8-digit work folder is created
 
 Options:
   -h, --help            Show this help message and exit
   -V, --version         Show version information and exit
       --no-color        Disable colored output
 
+Configuration:
+  Temporary comparison files are written under a unique 8-digit folder
+  inside a base directory. The base directory is resolved in this order:
+
+    1. RHEL_HA_ADVISOR_TMPDIR environment variable
+    2. tmp_dir setting in ~/.config/rhel-ha-advisor/config
+    3. \${TMPDIR:-/tmp}/rhel-ha-advisor (default)
+
 Examples:
-  rhel-ha-advisor ~/sosreports /tmp/rhel-ha-advisor-work
+  rhel-ha-advisor ~/sosreports
 
 EOF
 }
@@ -83,6 +90,33 @@ function version() {
 function die() {
   printf '\tError: %s\n\n' "$1" >&2
   exit 1
+}
+
+function resolve_tmp_dir() {
+  local config line
+
+  if [ -n "${RHEL_HA_ADVISOR_TMPDIR:-}" ]; then
+    TMP_DIR="$RHEL_HA_ADVISOR_TMPDIR"
+    return
+  fi
+
+  config="${XDG_CONFIG_HOME:-$HOME/.config}/rhel-ha-advisor/config"
+  if [ -f "$config" ]; then
+    while IFS= read -r line || [ -n "$line" ]; do
+      line="${line%%#*}"
+      line="${line#"${line%%[![:space:]]*}"}"
+      line="${line%"${line##*[![:space:]]}"}"
+      [ -z "$line" ] && continue
+      if [[ "$line" == tmp_dir=* ]]; then
+        TMP_DIR="${line#tmp_dir=}"
+        TMP_DIR="${TMP_DIR#"${TMP_DIR%%[![:space:]]*}"}"
+        TMP_DIR="${TMP_DIR%"${TMP_DIR##*[![:space:]]}"}"
+        [ -n "$TMP_DIR" ] && return
+      fi
+    done < "$config"
+  fi
+
+  TMP_DIR="${TMPDIR:-/tmp}/rhel-ha-advisor"
 }
 
 function list_sosreport_folders() {
@@ -267,8 +301,6 @@ while [ "$#" -gt 0 ]; do
     *)
       if [ -z "$SOSREPORTS_DIR" ]; then
         SOSREPORTS_DIR="$1"
-      elif [ -z "$TMP_DIR" ]; then
-        TMP_DIR="$1"
       else
         die "unexpected argument: $1"
       fi
@@ -281,10 +313,12 @@ if [ "$#" -gt 0 ]; then
   die "unexpected argument: $1"
 fi
 
-if [ -z "$SOSREPORTS_DIR" ] || [ -z "$TMP_DIR" ]; then
+if [ -z "$SOSREPORTS_DIR" ]; then
   usage >&2
   exit 1
 fi
+
+resolve_tmp_dir
 
 init_colors
 printf "\n"
