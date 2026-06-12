@@ -65,13 +65,13 @@ make uninstall
 From a clone, invoke the script directly:
 
 ```bash
-./rhel-ha-advisor PATH-TO-SOSREPORTS PATH-TO-TMPFILES
+./rhel-ha-advisor PATH-TO-SOSREPORTS
 ```
 
 # How to run
 
 ```bash
-rhel-ha-advisor [OPTIONS] PATH-TO-SOSREPORTS PATH-TO-TMPFILES
+rhel-ha-advisor [OPTIONS] PATH-TO-SOSREPORTS
 ```
 
 ## Arguments
@@ -79,7 +79,6 @@ rhel-ha-advisor [OPTIONS] PATH-TO-SOSREPORTS PATH-TO-TMPFILES
 | Argument | Description |
 |----------|-------------|
 | `PATH-TO-SOSREPORTS` | Directory containing unpacked sosreport folders |
-| `PATH-TO-TMPFILES` | Base directory where a unique 8-digit work folder is created for temporary comparison files |
 
 ## Options
 
@@ -88,6 +87,20 @@ rhel-ha-advisor [OPTIONS] PATH-TO-SOSREPORTS PATH-TO-TMPFILES
 | `-h`, `--help` | Show usage and exit |
 | `-V`, `--version` | Show version and exit |
 | `--no-color` | Disable colored output |
+
+## Configuration
+
+Temporary comparison files are written under a unique 8-digit folder inside a base directory. The base directory is resolved in this order:
+
+1. `RHEL_HA_ADVISOR_TMPDIR` environment variable
+2. `tmp_dir` setting in `~/.config/rhel-ha-advisor/config`
+3. `${TMPDIR:-/tmp}/rhel-ha-advisor` (default)
+
+Example config file:
+
+```ini
+tmp_dir=/var/tmp/rhel-ha-advisor-work
+```
 
 ## Workflow
 
@@ -105,12 +118,12 @@ Sosreport folders can be either:
 # Example execution
 
 ```bash
-$ rhel-ha-advisor ~/sosreports /tmp/rhel-ha-advisor-work
+$ rhel-ha-advisor ~/sosreports
 ```
 
 ```
 Sosreports directory: /home/user/sosreports
-Temporary files will be created in: /tmp/rhel-ha-advisor-work/48291037
+Temporary files will be created in: /tmp/rhel-ha-advisor/48291037
 
 sosreport-node1-2025-08-20-abc123
 sosreport-node2-2025-08-20-def456
