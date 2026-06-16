@@ -613,8 +613,13 @@ function check_hardware_platform {
       fi
       ;;
     Nutanix)
-      check_fail "This is a Nutanix virtual system, unsupported"
-      check_ref "Support Policies for RHEL High Availability Clusters - Nutanix AHV Virtual Machines as Cluster Members" "https://access.redhat.com/articles/6113961"
+      ostrhel=$(getOSrelease "$sosreport_name")
+      if [ "$(printf "%s\n" "8.6" "$ostrhel" | sort -V | tail -1)" = "$ostrhel" ]; then
+        check_pass "This is a Nutanix virtual system running RHEL 8.6+"
+      else
+        check_fail "This is a Nutanix virtual system not running the OS requirements. It is unsupported"
+        check_ref "Support Policies for RHEL High Availability Clusters - Nutanix AHV Virtual Machines as Cluster Members" "https://access.redhat.com/articles/6113961"
+      fi
       ;;
     Huawei*)
       fusioncpte=$(hwisFusionCompute "$sosreport_name")
