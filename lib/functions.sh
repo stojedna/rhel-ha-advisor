@@ -278,13 +278,29 @@ function hwisOLVM {
 }
 
 function ha_stonith {
-  stonena=$(pcs_property_all "$1" | grep stonith-enabled | head -1 | sed 's/=/:/' | cut -d: -f2 | awk '{print $1}' | tr '[:upper:]' '[:lower:]')
+  local stonena props cib
 
-  if [ "$stonena" != "true" ]; then
-      check_fail "stonith-enabled must be enabled but is not"
+  props=$(pcs_property_all "$1" 2>/dev/null)
+  stonena=$(printf '%s\n' "$props" | grep stonith-enabled | head -1 | sed 's/=/:/' | cut -d: -f2 | awk '{print $1}' | tr '[:upper:]' '[:lower:]')
+
+  if [ -z "$stonena" ]; then
+    cib=$(find "$(sos_root "$1")" -name cib.xml 2>/dev/null | head -1)
+    if [ -n "$cib" ]; then
+      if grep -q 'stonith-enabled' "$cib" 2>/dev/null; then
+        stonena=$(grep 'stonith-enabled' "$cib" 2>/dev/null | head -1 | sed -n 's/.*value="\([^"]*\)".*/\1/p' | tr '[:upper:]' '[:lower:]')
+      else
+        stonena="true"
+      fi
+    fi
+  fi
+
+  if [ -z "$stonena" ]; then
+      check_warn "Could not find if stonith mechanism is enabled (Pacemaker may be stopped)"
+  elif [ "$stonena" != "true" ]; then
+      check_fail "Stonith mechanism has been disabled"
       check_ref "How to set stonith-enabled to true in a Pacemaker cluster" "https://access.redhat.com/solutions/2476841"
   else
-      check_pass "stonith-enabled is enabled"
+      check_pass "Stonith mechanism is enabled"
   fi
 }
 
