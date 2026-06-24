@@ -277,6 +277,55 @@ function hwisOLVM {
   grep -i vendor "$(sos_root "$1")/dmidecode" | grep -ci oracle || true
 }
 
+function count_stonith_devices {
+  local root count=0 pcs_config pcs_status cib
+
+  root=$(sos_root "$1")
+  pcs_config="$root/sos_commands/pacemaker/pcs_config"
+  pcs_status="$root/sos_commands/pacemaker/pcs_status_--full"
+
+  if [ -f "$pcs_config" ]; then
+    count=$(grep -ciE 'class=stonith|\(stonith:' "$pcs_config" 2>/dev/null || true)
+  fi
+
+  if [ "${count:-0}" -eq 0 ] && [ -f "$pcs_status" ]; then
+    count=$(grep -ciE '\(stonith:' "$pcs_status" 2>/dev/null || true)
+  fi
+
+  if [ "${count:-0}" -eq 0 ]; then
+    cib=$(find "$root" -name cib.xml 2>/dev/null | head -1)
+    if [ -n "$cib" ]; then
+      count=$(grep -c 'class="stonith"' "$cib" 2>/dev/null || true)
+    fi
+  fi
+
+  printf '%s' "${count:-0}"
+}
+
+function ha_stonith_devices {
+  local count cib root
+
+  root=$(sos_root "$1")
+  count=$(count_stonith_devices "$1")
+
+  if [ "$count" -gt 0 ]; then
+    check_pass "At least one stonith device is configured ($count device(s))"
+    return
+  fi
+
+  if [ ! -f "$root/sos_commands/pacemaker/pcs_config" ] && \
+     [ ! -f "$root/sos_commands/pacemaker/pcs_status_--full" ]; then
+    cib=$(find "$root" -name cib.xml 2>/dev/null | head -1)
+    if [ -z "$cib" ]; then
+      check_warn "Could not determine whether stonith devices are configured (Pacemaker data not found in sosreport)"
+      return
+    fi
+  fi
+
+  check_fail "No stonith devices are configured in the cluster"
+  check_ref "Support Policies for RHEL High Availability Clusters - General Requirements for Fencing/STONITH" "https://access.redhat.com/articles/2867821"
+}
+
 function ha_stonith {
   local stonena props cib
 
@@ -778,6 +827,7 @@ function run_cluster_checks {
 
   ha_quorum "${_sosreports[1]}"
   ha_stonith "${_sosreports[1]}"
+  ha_stonith_devices "${_sosreports[1]}"
 
   case "$osversmaj" in
     7) tpreview7 "${_sosreports[1]}"

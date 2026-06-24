@@ -157,7 +157,8 @@ sosreport-node2-2025-08-20-def456
 - `corosync-qnetd` package presence
 - `no-quorum-policy` validation
 - `stonith-enabled` validation
-- Technology Preview feature detection (RHEL 7 and 8)
+- Stonith device presence in cluster configuration
+- Technology Preview feature detection
 - Remote and guest node detection
 - GFS2 withdraw checks
 
