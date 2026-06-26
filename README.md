@@ -158,6 +158,7 @@ sosreport-node2-2025-08-20-def456
 - `no-quorum-policy` validation
 - `stonith-enabled` validation
 - Stonith device presence in cluster configuration
+- Stonith devices are not all disabled 
 - Technology Preview feature detection
 - Remote and guest node detection
 - GFS2 withdraw checks

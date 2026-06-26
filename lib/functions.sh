@@ -302,6 +302,77 @@ function count_stonith_devices {
   printf '%s' "${count:-0}"
 }
 
+function count_disabled_stonith_devices {
+  local root pcs_status pcs_config cib count=0
+
+  root=$(sos_root "$1")
+  pcs_status="$root/sos_commands/pacemaker/pcs_status_--full"
+  pcs_config="$root/sos_commands/pacemaker/pcs_config"
+
+  if [ -f "$pcs_status" ]; then
+    count=$(grep -ciE '\(stonith:[^)]+\).*\(disabled\)|\(stonith:[^)]+\)[[:space:]]*\(disabled\)' "$pcs_status" 2>/dev/null || true)
+    count=$((count + $(awk '
+      /^Disabled [Rr]esources:/ { in_section=1; next }
+      in_section && /^[A-Za-z][A-Za-z0-9 _-]*:/ && !/^Disabled/ { in_section=0 }
+      in_section && /\(stonith:|class=stonith/ { n++ }
+      END { print n+0 }
+    ' "$pcs_status")))
+    printf '%s' "$count"
+    return 0
+  fi
+
+  if [ -f "$pcs_config" ]; then
+    count=$(awk '
+      /^Disabled [Rr]esources:/ { in_section=1; next }
+      in_section && /^[A-Za-z][A-Za-z0-9 _-]*:/ && !/^Disabled/ { in_section=0 }
+      in_section && /\(stonith:|class=stonith/ { n++ }
+      END { print n+0 }
+    ' "$pcs_config")
+    if [ "$count" -gt 0 ]; then
+      printf '%s' "$count"
+      return 0
+    fi
+  fi
+
+  cib=$(find "$root" -name cib.xml 2>/dev/null | head -1)
+  if [ -n "$cib" ]; then
+    count=$(grep 'class="stonith"' "$cib" 2>/dev/null | grep -c 'enabled="false"' || true)
+    printf '%s' "${count:-0}"
+    return 0
+  fi
+
+  printf 'unknown'
+}
+
+function ha_stonith_devices_enabled {
+  local total disabled
+
+  total=$(count_stonith_devices "$1")
+  if [ "$total" -eq 0 ]; then
+    return 0
+  fi
+
+  disabled=$(count_disabled_stonith_devices "$1")
+
+  if [ "$disabled" = "unknown" ]; then
+    check_warn "Could not determine whether stonith devices are disabled (pcs status not found in sosreport)"
+    return
+  fi
+
+  if [ "$disabled" -eq 0 ]; then
+    check_pass "All configured stonith devices are enabled"
+    return
+  fi
+
+  if [ "$disabled" -ge "$total" ]; then
+    check_fail "All stonith devices ($total) are disabled"
+    check_ref "How to set stonith-enabled to true in a Pacemaker cluster" "https://access.redhat.com/solutions/2476841"
+    return
+  fi
+
+  check_warn "$disabled of $total stonith device(s) are disabled"
+}
+
 function ha_stonith_devices {
   local count cib root
 
@@ -828,6 +899,7 @@ function run_cluster_checks {
   ha_quorum "${_sosreports[1]}"
   ha_stonith "${_sosreports[1]}"
   ha_stonith_devices "${_sosreports[1]}"
+  ha_stonith_devices_enabled "${_sosreports[1]}"
 
   case "$osversmaj" in
     7) tpreview7 "${_sosreports[1]}"
