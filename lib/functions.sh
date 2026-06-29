@@ -394,7 +394,7 @@ function ha_stonith_devices {
   fi
 
   check_fail "No stonith devices are configured in the cluster"
-  check_ref "Support Policies for RHEL High Availability Clusters - General Requirements for Fencing/STONITH" "https://access.redhat.com/articles/2867821"
+  check_ref "Support Policies for RHEL High Availability Clusters - General Requirements for Fencing/STONITH" "https://access.redhat.com/articles/2881341"
 }
 
 function ha_stonith {
