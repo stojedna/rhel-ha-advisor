@@ -3,7 +3,7 @@
 # RHEL HA Advisor
 # Javier Blanco | javier@jblanco.es
 
-RHEL_HA_ADVISOR_VERSION="1.1.0"
+RHEL_HA_ADVISOR_VERSION="1.1.1"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DATADIR=""
