@@ -4,6 +4,22 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.1]
+
+### Added
+
+- Added support for detecting Oracle VM (Oracle Xen) platforms.
+- Added support for Red Hat High Availability clusters running on Nutanix virtual machines.
+- Added STONITH validation to check that:
+  - at least one STONITH device is configured;
+  - not all configured STONITH devices are disabled.
+
+### Fixed
+
+- Fixed detection of LINBIT, IBM, and third-party clusters.
+- Fixed STONITH detection to avoid false positives when the cluster is stopped.
+- Corrected the fencing/STONITH documentation link in the General Requirements section.
+
 ## [1.1.0]
 
 ### Changed
