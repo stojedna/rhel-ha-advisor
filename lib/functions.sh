@@ -210,11 +210,11 @@ function isHPECluster {
 }
 
 function isLinbitClusterInstalled {
-  grep -ciE 'pacemaker|corosync' "$(sos_root "$1")/installed-rpms" | grep -c linbit || true
+  grep -iE 'pacemaker|corosync' "$(sos_root "$1")/installed-rpms" | grep -c linbit || true
 }
 
 function isIBMClusterInstalled {
-  grep -ciE 'pacemaker|corosync' "$(sos_root "$1")/installed-rpms" | grep -c db2pcmk || true
+  grep -iE 'pacemaker|corosync' "$(sos_root "$1")/installed-rpms" | grep -c db2pcmk || true
 }
 
 function isIBMGPFS {
@@ -226,7 +226,7 @@ function isORAC {
 }
 
 function is3PClusterInstalled {
-  grep -ciE 'pacemaker|corosync' "$(sos_root "$1")/sos_commands/rpm/package-data" | grep -ciE 'Oracle|Rocky|asianux' || true
+  grep -iE 'pacemaker|corosync' "$(sos_root "$1")/sos_commands/rpm/package-data" | grep -ciE 'Oracle|Rocky|asianux' || true
 }
 
 function getNodeNumber {
