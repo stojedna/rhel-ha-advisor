@@ -277,6 +277,53 @@ function hwisOLVM {
   grep -i vendor "$(sos_root "$1")/dmidecode" | grep -ci oracle || true
 }
 
+function hwisXen {
+  local root
+  root=$(sos_root "$1")
+
+  if [ -f "$root/dmidecode" ] && grep -qi 'Manufacturer: Xen' "$root/dmidecode"; then
+    printf '1'
+    return 0
+  fi
+  if [ -f "$root/sys/hypervisor/type" ] && grep -qi xen "$root/sys/hypervisor/type" 2>/dev/null; then
+    printf '1'
+    return 0
+  fi
+  if [ -f "$root/proc/xen/capabilities" ]; then
+    printf '1'
+    return 0
+  fi
+  printf '0'
+}
+
+function hwisOVM {
+  local root count
+  root=$(sos_root "$1")
+
+  if [ -f "$root/dmidecode" ]; then
+    count=$(grep -ci 'OVM' "$root/dmidecode" || true)
+    if [ "${count:-0}" -gt 0 ]; then
+      printf '1'
+      return 0
+    fi
+    count=$(grep -i vendor "$root/dmidecode" | grep -ci oracle || true)
+    if [ "${count:-0}" -gt 0 ]; then
+      printf '1'
+      return 0
+    fi
+  fi
+
+  if [ -f "$root/installed-rpms" ]; then
+    count=$(grep -ciE '^ovmd-|^xenstoreprovider-|^libovmapi-|^kmod-ovmapi-' "$root/installed-rpms" || true)
+    if [ "${count:-0}" -gt 0 ]; then
+      printf '1'
+      return 0
+    fi
+  fi
+
+  printf '0'
+}
+
 function count_stonith_devices {
   local root count=0 pcs_config pcs_status cib
 
@@ -700,8 +747,12 @@ function tpreview10 {
 
 function check_hardware_platform {
   local sosreport_name="$1"
-  local hw
+  local hw ovm
   hw=$(getHardware "$sosreport_name")
+
+  if [ -z "$hw" ] && [ "$(hwisXen "$sosreport_name")" -eq 1 ]; then
+    hw="Xen"
+  fi
 
   case "$hw" in
     Dell*|HP*|BULL*|Cisco*|IBM*|Lenovo*|LENOVO*|Hitachi*|FUJITSU*|*H3C*)
@@ -787,6 +838,16 @@ function check_hardware_platform {
         check_fail "This is an oVirt unknown platform, unsupported"
         check_ref "Support Policies for RHEL High Availability Clusters - RHEL libvirt/KVM Virtual Machines as Cluster Members" "https://access.redhat.com/articles/3131301"
       fi
+      ;;
+    Xen)
+      ovm=$(hwisOVM "$sosreport_name")
+      if [ "$ovm" -eq 1 ]
+      then
+        check_fail "This cluster is deployed in Oracle's OVM, unsupported"
+      else
+        check_fail "This cluster is deployed on a Xen platform, unsupported"
+      fi
+      check_ref "Support Policies for RHEL High Availability Clusters - Xen Virtual Machines as Cluster Members" "https://access.redhat.com/articles/3131361"
       ;;
     *)
       check_info "Hardware not found or not defined in the script"
