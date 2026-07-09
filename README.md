@@ -153,6 +153,7 @@ sosreport-node2-2025-08-20-def456
 - Cluster package version consistency
 - Kernel version consistency
 - Corosync configuration sync
+- Corosync rrp_mode check
 - `lvmetad` status on RHEL 7 clusters
 - `corosync-qnetd` package presence
 - `no-quorum-policy` validation

@@ -486,6 +486,14 @@ function conf_coros {
   cat "$(sos_root "$1")/etc/corosync/corosync.conf"
 }
 
+function coros_rrp {
+  grep -i 'rrp_mode' "$(sos_root "$1")/etc/corosync/corosync.conf" | grep -cv '#' || true
+}
+
+function coros_rrp_mode {
+  grep -i 'rrp_mode' "$(sos_root "$1")/etc/corosync/corosync.conf" | grep -vi 'passive\|none' | grep -cv '#' || true 
+}
+
 function rpm_version {
   cat "$(sos_root "$1")/installed-rpms" | grep -e ^'pacemaker\|pcs-\|corosync\|gfs2-\|resource-agents\|dlm\|lvm2-lockd' | grep -v 'corosync-qnetd' | sort | uniq | awk '{print $1}'
 }
@@ -862,7 +870,7 @@ function run_cluster_checks {
   local noden="$3"
   local count
   local osdist osdist2 osvers osversmaj rpmvers kervers cinsync lvmtastate qdev
-  local clremotend clguestnd fs_gfs2 wdraw
+  local corrrp corrrpmde clremotend clguestnd fs_gfs2 wdraw
 
   print_cluster_summary "$sosreports_name" "$noden"
 
@@ -974,6 +982,22 @@ function run_cluster_checks {
     *)
        ;;
   esac
+
+  corrrp=$(coros_rrp "${_sosreports[1]}")
+
+  if [ "$corrrp" -eq 0 ]
+  then
+    check_pass "Corosync rrp_mode has not been set"
+  else
+    corrrpmde=$(coros_rrp_mode "${_sosreports[1]}")
+    if [ "$corrrpmde" -eq 0 ]
+    then
+      check_pass "Corosync rrp_mode has been set in a supported mode"
+    else
+      check_fail "Corosync rrp_mode has been set in active mode"
+      check_ref "Support Policies for RHEL High Availability Clusters - Cluster Interconnect Network Interfaces" "https://access.redhat.com/articles/3068841"
+    fi
+  fi
 
   clremotend=$(RemoteNodes "${_sosreports[1]}")
 
