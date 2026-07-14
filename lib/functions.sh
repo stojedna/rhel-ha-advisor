@@ -205,6 +205,10 @@ function isVRTSCluster {
   grep -ci '/opt/VRTSvcs/' "$(sos_root "$1")/ps" || true
 }
 
+function isFUJICluster {
+  grep -ci '/opt/FJSV*' "$(sos_root "$1")/ps" || true
+}   
+
 function isHPECluster {
   grep -ci 'cmcluster' "$(sos_root "$1")/ps" || true
 }

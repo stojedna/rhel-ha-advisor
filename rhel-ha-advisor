@@ -187,7 +187,7 @@ function prompt_sosreports() {
 function validate_cluster_type() {
   local first_sosreport="$1"
   local clusinst vrtsinst hpesginst gpfsinst oracinst
-  local cluslinbitinst clusibminst clus3pinst
+  local cluslinbitinst clusibminst clus3pinst fujiinst
 
   clusinst=$(isClusterInstalled "$first_sosreport")
 
@@ -195,6 +195,7 @@ function validate_cluster_type() {
   then
     printf '[%bko %b] Red Hat cluster is not installed on this system\n' "$RED" "$NC"
     vrtsinst=$(isVRTSCluster "$first_sosreport")
+    fujiinst=$(isFUJICluster "$first_sosreport")
     hpesginst=$(isHPECluster "$first_sosreport")
     gpfsinst=$(isIBMGPFS "$first_sosreport")
     oracinst=$(isORAC "$first_sosreport")
@@ -202,6 +203,10 @@ function validate_cluster_type() {
     if [ "$vrtsinst" -gt 0 ]
     then
       printf '[%b info %b] This looks like a Veritas cluster\n' "$BLE" "$NC"
+    fi
+    if [ "$fujiinst" -gt 0 ]
+    then
+      printf '[%b info %b] This looks like a Fujitsu Primecluster\n' "$BLE" "$NC"
     fi
     if [ "$hpesginst" -gt 0 ]
     then
