@@ -12,7 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Corosync `rrp_mode` validation (passive/none supported; active fails).
+- Added corosync rrp_mode check.
+- Added corosync transport protocol check.
 - Added detection for Fujitsu Primecluster.
 
 ## [1.1.1]
