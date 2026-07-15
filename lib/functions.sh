@@ -498,6 +498,10 @@ function coros_rrp_mode {
   grep -i 'rrp_mode' "$(sos_root "$1")/etc/corosync/corosync.conf" | grep -vi 'passive\|none' | grep -cv '#' || true 
 }
 
+function coros_transport {
+  grep -i 'transport' "$(sos_root "$1")/etc/corosync/corosync.conf" | grep -cv '#' || true
+}
+
 function rpm_version {
   cat "$(sos_root "$1")/installed-rpms" | grep -e ^'pacemaker\|pcs-\|corosync\|gfs2-\|resource-agents\|dlm\|lvm2-lockd' | grep -v 'corosync-qnetd' | sort | uniq | awk '{print $1}'
 }
@@ -874,7 +878,7 @@ function run_cluster_checks {
   local noden="$3"
   local count
   local osdist osdist2 osvers osversmaj rpmvers kervers cinsync lvmtastate qdev
-  local corrrp corrrpmde clremotend clguestnd fs_gfs2 wdraw
+  local corrrp corrrpmde transport clremotend clguestnd fs_gfs2 wdraw
 
   print_cluster_summary "$sosreports_name" "$noden"
 
@@ -1007,6 +1011,27 @@ function run_cluster_checks {
       check_fail "Corosync rrp_mode has been set in active mode"
       check_ref "Support Policies for RHEL High Availability Clusters - Cluster Interconnect Network Interfaces" "https://access.redhat.com/articles/3068841"
     fi
+  fi
+
+  transport=$(coros_transport "${_sosreports[1]}")
+
+  if [ -z "$transport" ]; then
+    check_pass "Corosync transport not set (using supported default)"
+  else
+    case "$osversmaj" in
+      7)
+        case "$transport" in
+          udp|udpu) check_pass "Corosync transport is set to a supported protocol" ;;
+          knet)     check_fail "Corosync transport is set to a not supported protocol" ;;
+        esac
+        ;;
+      8|9|10)
+        case "$transport" in
+          knet)     check_pass "Corosync transport is set to a supported protocol" ;;
+          udp|udpu) check_fail "Corosync transport is set to a not supported protocol" ;;
+        esac
+        ;;
+    esac
   fi
 
   clremotend=$(RemoteNodes "${_sosreports[1]}")
