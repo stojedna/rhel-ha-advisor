@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Limit the `lvmetad` check to RHEL 7 clusters; on RHEL 8+ report that the check is not needed (lvmetad was removed), avoiding false warnings when `use_lvmetad` is absent from `lvm.conf`.
+
 ### Added
 
 - Corosync `rrp_mode` validation (passive/none supported; active fails).

@@ -954,12 +954,18 @@ function run_cluster_checks {
     check_ref "Editing the corosync.conf file in Red Hat Enterprise Linux 7" "https://access.redhat.com/articles/3185291"
   fi
 
-  if [ "$lvmtastate" -eq 0 ]
+  if [ "$osversmaj" -eq 7 ]
   then
-    check_pass "lvmetad is disabled in all the cluster nodes"
-  else
-    check_warn "lvmetad is not disabled in all the cluster nodes"
-    check_ref "Support Policies for RHEL High Availability Clusters - LVM in a Cluster" "https://access.redhat.com/articles/3071171"
+    if [ "$lvmtastate" -eq 0 ]
+    then
+      check_pass "lvmetad is disabled in all the cluster nodes"
+    else
+      check_warn "lvmetad is not disabled in all the cluster nodes"
+      check_ref "Support Policies for RHEL High Availability Clusters - LVM in a Cluster" "https://access.redhat.com/articles/3071171"
+    fi
+  elif [ "$osversmaj" -ge 8 ]
+  then
+    check_info "lvmetad check is not needed on RHEL $osversmaj (lvmetad was removed in RHEL 8)"
   fi
 
   if [ "$qdev" -eq 0 ]
