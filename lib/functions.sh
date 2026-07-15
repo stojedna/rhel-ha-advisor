@@ -1001,7 +1001,7 @@ function run_cluster_checks {
 
   if [ "$corrrp" -eq 0 ]
   then
-    check_pass "Corosync rrp_mode has not been set"
+    check_pass "Corosync rrp_mode has not been set (using supported default)"
   else
     corrrpmde=$(coros_rrp_mode "${_sosreports[1]}")
     if [ "$corrrpmde" -eq 0 ]
