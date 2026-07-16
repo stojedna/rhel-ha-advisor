@@ -499,7 +499,7 @@ function coros_rrp_mode {
 }
 
 function coros_transport {
-  grep -i 'transport' "$(sos_root "$1")/etc/corosync/corosync.conf" | grep -cv '#' || true
+  grep -i 'transport' "$(sos_root "$1")/etc/corosync/corosync.conf" 2>/dev/null | grep -v '#' | head -1 | cut -d: -f2- | tr -d '[:space:]'
 }
 
 function rpm_version {
