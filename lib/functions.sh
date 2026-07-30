@@ -448,6 +448,31 @@ function ha_stonith_devices {
   check_ref "Support Policies for RHEL High Availability Clusters - General Requirements for Fencing/STONITH" "https://access.redhat.com/articles/2881341"
 }
 
+function fence_kdump_devices {
+  local root count=0 pcs_config pcs_status cib
+    
+  root=$(sos_root "$1")
+  pcs_config="$root/sos_commands/pacemaker/pcs_config"
+  pcs_status="$root/sos_commands/pacemaker/pcs_status_--full"
+     
+  if [ -f "$pcs_config" ]; then
+    count=$(grep -iE 'class=stonith|\(stonith:' "$pcs_config | grep -ciE 'type=fence_kdump' " 2>/dev/null || true)
+  fi  
+
+  if [ "${count:-0}" -eq 0 ] && [ -f "$pcs_status" ]; then
+    count=$(grep -ciE 'stonith:fence_kdump' "$pcs_status" 2>/dev/null || true)
+  fi  
+  
+  if [ "${count:-0}" -eq 0 ]; then
+    cib=$(find "$root" -name cib.xml 2>/dev/null | head -1)
+    if [ -n "$cib" ]; then
+      count=$(grep -c 'type="fence_kdump"' "$cib" 2>/dev/null || true)
+    fi
+  fi
+  
+  printf '%s' "${count:-0}"
+}
+
 function ha_stonith {
   local stonena props cib
 
@@ -879,6 +904,7 @@ function run_cluster_checks {
   local count
   local osdist osdist2 osvers osversmaj rpmvers kervers cinsync lvmtastate qdev
   local corrrp corrrpmde transport clremotend clguestnd fs_gfs2 wdraw
+  local kdumpdevn stonithdevn
 
   print_cluster_summary "$sosreports_name" "$noden"
 
@@ -984,6 +1010,42 @@ function run_cluster_checks {
   ha_stonith_devices "${_sosreports[1]}"
   ha_stonith_devices_enabled "${_sosreports[1]}"
 
+  fs_gfs2=$(use_gfs2_fs "${_sosreports[1]}")
+  kdumpdevn=$(fence_kdump_devices "${_sosreports[1]}") 
+  stonithdevn=$(count_stonith_devices "${_sosreports[1]}")
+
+  if [ "$fs_gfs2" -eq 0 ]
+  then
+    check_info "This is not a Resilient Storage cluster. Checking if only kdump devices exist is not needed"
+    check_info "This is not a Resilient Storage cluster. Checking withdraw is not needed"
+  else
+    if [ "$kdumpdevn" -eq "$stonithdevn" ]
+    then
+      check_fail "Resilient Storage clusters require a non kdump stonith device per node"
+      check_ref "Support Policies for RHEL High Availability Clusters - General Requirements for Fencing/STONITH" "https://access.redhat.com/articles/2881341"
+    else
+      check_pass "This Resilient Storage cluster has more than kdump stonith devices"
+    fi
+    count=1
+    while [ "$count" -le "$noden" ]
+    do
+      gfs2_withdraw "${_sosreports[count]}" > "$tmpfolder/gfs2_withdraw.$count"
+      ((count++))
+    done
+    wdraw=0
+    for f in "$tmpfolder"/gfs2_withdraw.*; do
+      [ -f "$f" ] && [ "$(cat "$f")" = "1" ] && ((wdraw++)) || true
+    done
+
+    if [ "$wdraw" -eq 0 ]
+    then
+      check_pass "No withdraw has been found in the GFS2 filesystems"
+    else
+      check_fail "Withdraw have been found in at least one GFS2 filesystem"
+      check_ref "How can I recover from a gfs2 withdrawal and fix any filesystem corruption that might exist in a Red Hat Enterprise Linux 5, 6, 7 or 8 Resilient Storage cluster?" "https://access.redhat.com/solutions/332223"
+    fi
+  fi
+
   case "$osversmaj" in
     7) tpreview7 "${_sosreports[1]}"
        ;;
@@ -1050,32 +1112,6 @@ function run_cluster_checks {
     check_info "The cluster has $clguestnd guest node(s)"
   else
     check_info "The cluster has no guest nodes"
-  fi
-
-  fs_gfs2=$(use_gfs2_fs "${_sosreports[1]}")
-
-  if [ "$fs_gfs2" -eq 0 ]
-  then
-    check_info "No GFS2 resources, checking withdraw is not needed"
-  else
-    count=1
-    while [ "$count" -le "$noden" ]
-    do
-      gfs2_withdraw "${_sosreports[count]}" > "$tmpfolder/gfs2_withdraw.$count"
-      ((count++))
-    done
-    wdraw=0
-    for f in "$tmpfolder"/gfs2_withdraw.*; do
-      [ -f "$f" ] && [ "$(cat "$f")" = "1" ] && ((wdraw++)) || true
-    done
-
-    if [ "$wdraw" -eq 0 ]
-    then
-      check_pass "No withdraw has been found in the GFS2 filesystems"
-    else
-      check_fail "Withdraw have been found in at least one GFS2 filesystem"
-      check_ref "How can I recover from a gfs2 withdrawal and fix any filesystem corruption that might exist in a Red Hat Enterprise Linux 5, 6, 7 or 8 Resilient Storage cluster?" "https://access.redhat.com/solutions/332223"
-    fi
   fi
 
   check_table_end

@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added corosync rrp_mode check.
 - Added corosync transport protocol check.
 - Added detection for Fujitsu Primecluster.
+- Added check that fails when a Resilient Storage cluster has only `fence_kdump` stonith devices.
 
 ## [1.1.1]
 

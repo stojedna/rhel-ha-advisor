@@ -160,7 +160,8 @@ sosreport-node2-2025-08-20-def456
 - `no-quorum-policy` validation
 - `stonith-enabled` validation
 - Stonith device presence in cluster configuration
-- Stonith devices are not all disabled 
+- Stonith devices are not all disabled
+- Resilient Storage (GFS2) clusters are not limited to `fence_kdump` stonith devices
 - Technology Preview feature detection
 - Remote and guest node detection
 - GFS2 withdraw checks
