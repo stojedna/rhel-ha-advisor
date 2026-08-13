@@ -165,6 +165,8 @@ sosreport-node2-2025-08-20-def456
 - Technology Preview feature detection
 - Remote and guest node detection
 - GFS2 withdraw checks
+- Cluster is registered in a quorum device using the right algorithm
+- Quorum device is not hosted in one of the cluster nodes
 
 ## Additional stats and debug checks
 

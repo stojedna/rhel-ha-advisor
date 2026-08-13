@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Added corosync transport protocol check.
 - Added detection for Fujitsu Primecluster.
 - Added check that fails when a Resilient Storage cluster has only `fence_kdump` stonith devices.
+- Added check to ensure the cluster is registered in a quorum device using the right algorithm.
+- Added check to ensure the quorum device is not hosted in one of the cluster nodes.
 
 ## [1.1.1]
 

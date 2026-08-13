@@ -527,6 +527,25 @@ function coros_transport {
   grep -i 'transport' "$(sos_root "$1")/etc/corosync/corosync.conf" 2>/dev/null | grep -v '#' | head -1 | cut -d: -f2- | tr -d '[:space:]'
 }
 
+function quorum_high_exp {
+  grep -i ^'Highest expected' "$(sos_root "$1")/sos_commands/pacemaker/pcs_quorum_status" 2>/dev/null | cut -d: -f2 | tr -d ' '
+}
+
+function qdevice_name {
+  awk 'BEGIN{IGNORECASE=1} /quorum:/ , /host:/' "$(sos_root "$1")/sos_commands/pacemaker/pcs_config" 2>/dev/null | grep -i host | cut -d: -f2 | tr -d ' '
+}
+
+function qdevice_algorithm {
+  awk 'BEGIN{IGNORECASE=1} /quorum:/ , /host:/' "$(sos_root "$1")/sos_commands/pacemaker/pcs_config" 2>/dev/null | grep -i algorithm | cut -d: -f2 | tr -d ' '
+}
+
+function is_qdevice_a_node {
+  local qdevname
+
+  qdevname="$1"
+  awk 'BEGIN{IGNORECASE=1} /Corosync Nodes:/ , /Pacemaker Nodes:/' "$(sos_root "$1")/sos_commands/pacemaker/pcs_config" 2>/dev/null | tail -2 | head -1 | grep -c $qdevname
+}
+
 function rpm_version {
   cat "$(sos_root "$1")/installed-rpms" | grep -e ^'pacemaker\|pcs-\|corosync\|gfs2-\|resource-agents\|dlm\|lvm2-lockd' | grep -v 'corosync-qnetd' | sort | uniq | awk '{print $1}'
 }
@@ -904,7 +923,7 @@ function run_cluster_checks {
   local count
   local osdist osdist2 osvers osversmaj rpmvers kervers cinsync lvmtastate qdev
   local corrrp corrrpmde transport clremotend clguestnd fs_gfs2 wdraw
-  local kdumpdevn stonithdevn
+  local kdumpdevn stonithdevn qhexvotes qdname qdalgor isqdevanode 
 
   print_cluster_summary "$sosreports_name" "$noden"
 
@@ -1096,6 +1115,40 @@ function run_cluster_checks {
     esac
   fi
 
+  qhexvotes=$(quorum_high_exp "${_sosreports[1]}")
+
+  if [ "$qhexvotes" -gt "$noden" ]
+  then
+    qdname=$(qdevice_name "${_sosreports[1]}")
+    qdalgor=$(qdevice_algorithm "${_sosreports[1]}") 
+
+    if [ $qdalgor == 'ffsplit' ]
+    then
+     if [ $((noden % 2)) -eq 0 ]
+     then
+       check_pass "The cluster is registered in a quorum device ($qdalgor)"
+     else
+       check_info "The cluster is registered in a quorum device ($qdalgor)"
+       check_fail "Quorum algorithm $qdalgor is intended for clusters with an even number of nodes"
+       check_ref "Design Guidance for RHEL High Availability Clusters - Considerations with qdevice Quorum Arbitration" "https://access.redhat.com/articles/3135481"
+     fi
+    else
+      check_pass "The cluster is registered in a quorum device ($qdalgor)"
+    fi  
+
+    isqdevanode=$(is_qdevice_a_node "${_sosreports[1]}")
+
+    if [ "$isqdevanode" -gt 0  ]
+    then
+      check_fail "The quorum device is hosted in one of the cluster nodes"
+    else
+      check_pass "The quorum device is not hosted in one of the cluster nodes"
+    fi
+
+  else
+    check_pass "The cluster is not registered in a quorum device"
+  fi
+  
   clremotend=$(RemoteNodes "${_sosreports[1]}")
 
   if [ "$clremotend" -gt 0 ]
