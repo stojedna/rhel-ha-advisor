@@ -206,7 +206,7 @@ function isVRTSCluster {
 }
 
 function isFUJICluster {
-  grep -ci '/opt/FJSV*' "$(sos_root "$1")/ps" || true
+  grep -ci '/opt/FJSV\*' "$(sos_root "$1")/ps" || true
 }   
 
 function isHPECluster {
@@ -543,7 +543,7 @@ function is_qdevice_a_node {
   local qdevname
 
   qdevname="$1"
-  awk 'BEGIN{IGNORECASE=1} /Corosync Nodes:/ , /Pacemaker Nodes:/' "$(sos_root "$1")/sos_commands/pacemaker/pcs_config" 2>/dev/null | tail -2 | head -1 | grep -c $qdevname
+  awk 'BEGIN{IGNORECASE=1} /Corosync Nodes:/ , /Pacemaker Nodes:/' "$(sos_root "$1")/sos_commands/pacemaker/pcs_config" 2>/dev/null | tail -2 | head -1 | grep -c "$qdevname"
 }
 
 function rpm_version {
@@ -1121,7 +1121,7 @@ function run_cluster_checks {
   then
     qdalgor=$(qdevice_algorithm "${_sosreports[1]}") 
 
-    if [ $qdalgor == 'ffsplit' ]
+    if [ "$qdalgor" == 'ffsplit' ]
     then
      if [ $((noden % 2)) -eq 0 ]
      then
