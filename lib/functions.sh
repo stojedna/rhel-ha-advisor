@@ -815,7 +815,7 @@ function check_hardware_platform {
   fi
 
   case "$hw" in
-    Dell*|HP*|BULL*|Cisco*|IBM*|Lenovo*|LENOVO*|Hitachi*|FUJITSU*|*H3C*)
+    Dell*|HP*|BULL*|Cisco*|IBM*|Lenovo*|LENOVO*|Hitachi*|FUJITSU*|*H3C*|XFUSION*)
       check_pass "This is a Hardware based cluster"
       ;;
     Red*Hat)
