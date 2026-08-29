@@ -923,7 +923,7 @@ function run_cluster_checks {
   local count
   local osdist osdist2 osvers osversmaj rpmvers kervers cinsync lvmtastate qdev
   local corrrp corrrpmde transport clremotend clguestnd fs_gfs2 wdraw
-  local kdumpdevn stonithdevn qhexvotes qdname qdalgor isqdevanode 
+  local kdumpdevn stonithdevn qhexvotes qdalgor isqdevanode 
 
   print_cluster_summary "$sosreports_name" "$noden"
 
@@ -1119,7 +1119,6 @@ function run_cluster_checks {
 
   if [ "$qhexvotes" -gt "$noden" ]
   then
-    qdname=$(qdevice_name "${_sosreports[1]}")
     qdalgor=$(qdevice_algorithm "${_sosreports[1]}") 
 
     if [ $qdalgor == 'ffsplit' ]
