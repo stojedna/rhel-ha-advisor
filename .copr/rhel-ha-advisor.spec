@@ -8,7 +8,7 @@
 
 Name:           rhel-ha-advisor
 Version:        1.1.2
-Release:        1%{?dist}
+Release:        %{?dist}
 Summary:        Review RHEL HA cluster sosreports offline
 
 # Add a LICENSE file upstream and keep this in sync.
