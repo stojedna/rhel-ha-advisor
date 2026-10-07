@@ -4,6 +4,18 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- Added verification of the number of nodes in Resilient Storage clusters.
+- Added verification of the number of corosync rings in Resilient Storage clusters.
+
+### Removed
+
+- Resilient storage checks (kdump & withdraw) are not included in the report anymore if the cluster is not a Resilient Storage.
+- lvmetad check is not included anymore in the report if the nodes don't run RHEL 7.
+
 ## [1.1.2]
 
 ### Fixed
