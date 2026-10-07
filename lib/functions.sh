@@ -1041,11 +1041,8 @@ function run_cluster_checks {
   kdumpdevn=$(fence_kdump_devices "${_sosreports[1]}") 
   stonithdevn=$(count_stonith_devices "${_sosreports[1]}")
 
-  if [ "$fs_gfs2" -eq 0 ]
+  if [ "$fs_gfs2" -gt 0 ]
   then
-    check_info "This is not a Resilient Storage cluster. Checking if only kdump devices exist is not needed"
-    check_info "This is not a Resilient Storage cluster. Checking withdraw is not needed"
-  else
     if [ "$kdumpdevn" -eq "$stonithdevn" ]
     then
       check_fail "Resilient Storage clusters require a non kdump stonith device per node"
