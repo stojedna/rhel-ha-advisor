@@ -1020,9 +1020,6 @@ function run_cluster_checks {
       check_warn "lvmetad is not disabled in all the cluster nodes"
       check_ref "Support Policies for RHEL High Availability Clusters - LVM in a Cluster" "https://access.redhat.com/articles/3071171"
     fi
-  elif [ "$osversmaj" -ge 8 ]
-  then
-    check_info "lvmetad check is not needed on RHEL $osversmaj (lvmetad was removed in RHEL 8)"
   fi
 
   if [ "$qdev" -eq 0 ]
