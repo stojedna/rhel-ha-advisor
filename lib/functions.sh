@@ -527,6 +527,10 @@ function coros_transport {
   grep -i 'transport' "$(sos_root "$1")/etc/corosync/corosync.conf" 2>/dev/null | grep -v '#' | head -1 | cut -d: -f2- | tr -d '[:space:]'
 }
 
+function coros_ring {
+  grep -i 'ring[0-9]_addr' "$(sos_root "$1")/etc/corosync/corosync.conf" | awk '{print $1}' | cut -d: -f1 | sort -u | wc -l || true
+}
+
 function quorum_high_exp {
   grep -i ^'Highest expected' "$(sos_root "$1")/sos_commands/pacemaker/pcs_quorum_status" 2>/dev/null | cut -d: -f2 | tr -d ' '
 }
@@ -682,6 +686,10 @@ function gfs2_withdraw {
   done
   printf '0'
 }
+
+function use_dlm {
+  grep -ci 'ocf:pacemaker:controld' "$(sos_root "$1")/sos_commands/pacemaker/pcs_status_--full" || true
+} 
 
 function RemoteNodes {
   grep -ci 'ocf:pacemaker:remote' "$(sos_root "$1")/sos_commands/pacemaker/pcs_status_--full" || true
@@ -922,8 +930,8 @@ function run_cluster_checks {
   local noden="$3"
   local count
   local osdist osdist2 osvers osversmaj rpmvers kervers cinsync lvmtastate qdev
-  local corrrp corrrpmde transport clremotend clguestnd fs_gfs2 wdraw
-  local kdumpdevn stonithdevn qhexvotes qdalgor isqdevanode 
+  local corrrp corrrpmde transport clremotend clguestnd fs_gfs2 dlmres wdraw
+  local kdumpdevn stonithdevn qhexvotes qdalgor isqdevanode ringnum 
 
   print_cluster_summary "$sosreports_name" "$noden"
 
@@ -1062,6 +1070,27 @@ function run_cluster_checks {
     else
       check_fail "Withdraw have been found in at least one GFS2 filesystem"
       check_ref "How can I recover from a gfs2 withdrawal and fix any filesystem corruption that might exist in a Red Hat Enterprise Linux 5, 6, 7 or 8 Resilient Storage cluster?" "https://access.redhat.com/solutions/332223"
+    fi
+  fi
+
+  dlmres=$(use_dlm "${_sosreports[1]}")
+  ringnum=$(coros_ring "${_sosreports[1]}") 
+
+  if [ "$dlmres" -gt 0 ]
+  then
+    if [ "$noden" -gt 16 ]
+    then
+      check_fail "DLM supports a maximum of 16 cluster nodes"
+      check_ref "Support Policies for RHEL Resilient Storage - dlm General Policies" "https://access.redhat.com/articles/3068921"
+    else
+      check_pass "The number of cluster nodes is supported by dlm"
+    fi
+    if [ "$ringnum" -gt 1 ]
+    then
+      check_fail "The number of corosync rings is not supported by dlm"
+      check_ref "Support Policies for RHEL Resilient Storage - dlm General Policies" "https://access.redhat.com/articles/3068921"
+    else
+      check_pass "The number of corosync rings is supported by dlm"
     fi
   fi
 
