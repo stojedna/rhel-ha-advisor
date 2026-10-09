@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - Added verification of the number of nodes in Resilient Storage clusters.
 - Added verification of the number of corosync rings in Resilient Storage clusters.
+- Added verification of Corosync's token value.
 
 ### Removed
 

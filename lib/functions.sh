@@ -531,6 +531,16 @@ function coros_ring {
   grep -i 'ring[0-9]_addr' "$(sos_root "$1")/etc/corosync/corosync.conf" | awk '{print $1}' | cut -d: -f1 | sort -u | wc -l || true
 }
 
+function coros_tkn {
+  ctkndef=$(grep -i 'token' "$(sos_root "$1")/etc/corosync/corosync.conf" | grep -cv '#' || true)
+  if [ "$ctkndef" -eq 0 ]
+  then
+    echo "99999"
+  else
+    grep -i 'token' "$(sos_root "$1")/etc/corosync/corosync.conf" | awk '{print $2}' || true
+  fi
+}
+
 function quorum_high_exp {
   grep -i ^'Highest expected' "$(sos_root "$1")/sos_commands/pacemaker/pcs_quorum_status" 2>/dev/null | cut -d: -f2 | tr -d ' '
 }
@@ -930,7 +940,7 @@ function run_cluster_checks {
   local noden="$3"
   local count
   local osdist osdist2 osvers osversmaj rpmvers kervers cinsync lvmtastate qdev
-  local corrrp corrrpmde transport clremotend clguestnd fs_gfs2 dlmres wdraw
+  local corrrp corrrpmde transport cortkn clremotend clguestnd fs_gfs2 dlmres wdraw
   local kdumpdevn stonithdevn qhexvotes qdalgor isqdevanode ringnum 
 
   print_cluster_summary "$sosreports_name" "$noden"
@@ -1136,6 +1146,18 @@ function run_cluster_checks {
         esac
         ;;
     esac
+  fi
+
+  cortkn=$(coros_tkn "${_sosreports[1]}")
+
+  if [ "$cortkn" -gt 300000 ]
+  then
+    check_fail "Corosync token is set to a not supported value"
+    check_ref "Support Policies for RHEL High Availability clusters - corosync" "https://access.redhat.com/articles/3068821"
+  elif [ "$cortkn" -eq 99999 ]; then
+    check_pass "Corosync token is by default"
+  else
+    check_pass "Corosync token is set to a supported value"
   fi
 
   qhexvotes=$(quorum_high_exp "${_sosreports[1]}")
