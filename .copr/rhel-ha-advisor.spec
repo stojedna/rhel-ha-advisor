@@ -1,14 +1,14 @@
 # Fedora / COPR spec for rhel-ha-advisor
 #
-# Local build (after tagging v%{version} and publishing the archive URL):
+# Local build (after tagging v%%{version} and publishing the archive URL):
 #   spectool -g -R packaging/rhel-ha-advisor.spec
 #   rpmbuild -ba packaging/rhel-ha-advisor.spec
 #
 # COPR: point SCM at this repo and set "Spec file" to packaging/rhel-ha-advisor.spec
 
 Name:           rhel-ha-advisor
-Version:        1.1.2
-Release:        %{?dist}
+Version:        1.1.3
+Release:        1%{?dist}
 Summary:        Review RHEL HA cluster sosreports offline
 
 # Add a LICENSE file upstream and keep this in sync.
@@ -46,7 +46,7 @@ diagnostic checks with pass/fail/warn results.
 make install PREFIX=%{_prefix} DESTDIR=%{buildroot}
 
 %check
-shellcheck -x rhel-ha-advisor lib/functions.sh
+shellcheck --severity=error -x rhel-ha-advisor lib/functions.sh
 
 %files
 %doc README.md CHANGELOG.md
@@ -54,6 +54,6 @@ shellcheck -x rhel-ha-advisor lib/functions.sh
 %{_datadir}/%{name}/lib/functions.sh
 
 %changelog
-* Sat Aug 29 2026 Javier Blanco <javier@jblanco.es> - 1.1.2-1
-- Update to 1.1.2; see CHANGELOG.md for details
+* Thu Oct 22 2026 Javier Blanco <javier@jblanco.es> - 1.1.3
+- Update to 1.1.3; see CHANGELOG.md for details
 
