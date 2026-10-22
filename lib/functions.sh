@@ -532,12 +532,12 @@ function coros_ring {
 }
 
 function coros_tkn {
-  ctkndef=$(grep -i 'token' "$(sos_root "$1")/etc/corosync/corosync.conf" | grep -cv '#' || true)
+  ctkndef=$(grep -i 'token:' "$(sos_root "$1")/etc/corosync/corosync.conf" | grep -cv '#' || true)
   if [ "$ctkndef" -eq 0 ]
   then
     echo "99999"
   else
-    grep -i 'token' "$(sos_root "$1")/etc/corosync/corosync.conf" | awk '{print $2}' || true
+    grep -i 'token:' "$(sos_root "$1")/etc/corosync/corosync.conf" | awk '{print $2}' || true
   fi
 }
 
